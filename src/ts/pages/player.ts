@@ -163,6 +163,20 @@ export function Player() {
       numberEntry.pushDigit(digitOf(e));
       return;
     }
+    // Channel Up/Down: switch channel directly from any context (closes panes).
+    if (key === "CHANNEL_UP" || key === "CHANNEL_DOWN") {
+      if (mode === "list") closeList();
+      else if (mode === "timeline") closeTimeline();
+      zap(key === "CHANNEL_UP" ? 1 : -1);
+      return;
+    }
+    // Dedicated Channel List key toggles the channel list from anywhere.
+    if (key === "CHANNEL_LIST") {
+      if (mode === "timeline") closeTimeline();
+      if (mode === "list") closeList();
+      else openList();
+      return;
+    }
     if (mode === "list") {
       if (key === "UP") list.move(-1);
       else if (key === "DOWN") list.move(1);
@@ -189,17 +203,9 @@ export function Player() {
       } else if (key === "BACK") closeTimeline();
       return;
     }
-    // bare player
-    if (key === "OK") {
-      // Light first touch: show now/next; a second OK opens the channel list.
-      const infoVisible = el("info-bar-overlay").innerHTML !== "";
-      if (!infoVisible && currentId) {
-        const ch = channelsStore.getById(currentId);
-        if (ch) showInfoBar(ch);
-      } else openList();
-    } else if (key === "UP") zap(-1);
-    else if (key === "DOWN") zap(1);
-    else if (key === "RIGHT" || key === "LEFT") openTimeline();
+    // bare player — arrows open the navigation panes (Channel Up/Down zap directly).
+    if (key === "OK" || key === "UP" || key === "DOWN") openList();
+    else if (key === "LEFT" || key === "RIGHT") openTimeline();
     else if (key === "BACK") {
       if (timeshift) returnToLive();
       else router.goBack();

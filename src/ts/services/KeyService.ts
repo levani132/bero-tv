@@ -2,12 +2,14 @@
 // keys so pages/components handle intent, not raw codes (ui-ux-plan §7, FR-005).
 export type LogicalKey =
   | "UP" | "DOWN" | "LEFT" | "RIGHT" | "OK" | "BACK"
+  | "CHANNEL_UP" | "CHANNEL_DOWN" | "CHANNEL_LIST"
   | "PLAYPAUSE" | "REWIND" | "FORWARD" | "DIGIT" | "UNKNOWN";
 
 const MAP: Record<number, LogicalKey> = {
   37: "LEFT", 38: "UP", 39: "RIGHT", 40: "DOWN",
   13: "OK",
   8: "BACK", 461: "BACK" /* Android */, 10009: "BACK" /* Tizen RETURN */,
+  427: "CHANNEL_UP", 428: "CHANNEL_DOWN", 10073: "CHANNEL_LIST" /* Tizen TV remote */,
   415: "PLAYPAUSE", 19: "PLAYPAUSE", 10252: "PLAYPAUSE" /* Tizen */,
   412: "REWIND", 417: "FORWARD",
 };
