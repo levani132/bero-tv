@@ -14,6 +14,7 @@
     </tizen:app-control>
     <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
     <tizen:privilege name="http://tizen.org/privilege/download"/>
     <tizen:privilege name="http://tizen.org/privilege/mediastorage"/>
     <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
