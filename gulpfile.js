@@ -9,10 +9,6 @@ function build() {
   return src("src/ts/**/*.ts").pipe(tsProject()).pipe(dest("dist/js"));
 }
 
-function buildTizenService() {
-  return src("src/ts/services/*.ts").pipe(tsProject()).pipe(dest("tizen/webapp/js/services"));
-}
-
 function copyCss() {
   return src("src/css/**/*").pipe(dest("dist/css"));
 }
@@ -21,14 +17,16 @@ function copyImages() {
   return src("src/images/**/*").pipe(dest("dist/images"));
 }
 
-function copyTizenAssets() {
-  src("src/css/**/*").pipe(dest("tizen/webapp/css"));
-  return src("src/images/**/*").pipe(dest("tizen/webapp/images"));
-}
+// Production URL the packaged Tizen .wgt loads its app code/assets from.
+// MUST match the deployed Vercel URL (mirrors bero-movies' base-href approach).
+const TIZEN_BASE = "https://bero-tv.vercel.app/";
 
 function copyTizenHtml() {
-  // On Tizen the app is packaged locally; no remote base href is injected.
-  return src("src/*.html").pipe(dest("tizen/webapp"));
+  // The Tizen package is a thin shell: it injects a <base href> so the webview
+  // loads main.js / css / images from the deployed site (like bero-movies).
+  return src("src/*.html")
+    .pipe(inject.after("<head>", '\n    <base href="' + TIZEN_BASE + '">'))
+    .pipe(dest("tizen/webapp"));
 }
 
 function copyHtml() {
@@ -36,7 +34,7 @@ function copyHtml() {
 }
 
 const processHtml = series(copyTizenHtml, copyHtml);
-const buildTs = series(build, buildTizenService);
+const buildTs = series(build);
 
 const DEV_PORT = process.env.PORT || 3000;
 function serve() {
@@ -52,5 +50,5 @@ function serve() {
   watch("src/*.html", reflectChangesAnd(processHtml));
 }
 
-exports.build = series(build, buildTizenService, copyCss, copyImages, copyTizenAssets, processHtml);
+exports.build = series(build, copyCss, copyImages, processHtml);
 exports.watch = series(exports.build, serve);
