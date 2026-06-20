@@ -1,94 +1,79 @@
-/* Bero TV — theme tokens (ui-ux-plan §9) + base 10-foot/D-pad layout */
-:root {
-  --bg-base: #0E0E10;
-  --surface: #18181B;
-  --surface-raised: #232328;
-  --accent: #E11D2A;
-  --accent-focus: #FF3B45;
-  --accent-pressed: #B5141F;
-  --text-primary: #F2F2F3;
-  --text-secondary: #A1A1AA;
-  --ok-online: #2EBD85;
-  --scrim: rgba(0, 0, 0, .55);
-  --overscan: 48px;
-}
+/* Bero TV theme. NOTE: targets old Tizen webviews — NO CSS custom properties
+   (var()), NO `inset`, NO flexbox `gap`. Hardcoded colors + explicit positioning
+   + margins, mirroring bero-movies' conservative CSS. */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
   width: 1920px; height: 1080px; overflow: hidden;
-  background: var(--bg-base); color: var(--text-primary);
+  background: #0E0E10; color: #F2F2F3;
   font-family: "FiraGO", "Noto Sans Georgian", "Helvetica Neue", Arial, sans-serif;
   font-size: 28px; -webkit-user-select: none; user-select: none;
 }
 
 /* Player (home) */
-.player { position: absolute; inset: 0; background: #000; }
-.player video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.player { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; }
+.player video { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; background: #000; }
 
-/* Overlay scrim shared */
-.overlay { position: absolute; inset: 0; z-index: 10; }
-.overlay--scrim { background: var(--scrim); }
-
-/* Channel list (left vertical overlay, ui-ux-plan §5.2) */
+/* Channel list (left vertical overlay) */
 .channel-list { position: absolute; top: 0; bottom: 0; left: 0; width: 38%;
-  background: var(--scrim); padding: var(--overscan) 0 var(--overscan) var(--overscan); z-index: 20; }
-.channel-list__header { display: flex; gap: 24px; color: var(--text-secondary); margin-bottom: 24px; }
+  background: rgba(0,0,0,.55); padding: 48px 0 48px 48px; z-index: 20; }
+.channel-list__header { color: #A1A1AA; margin-bottom: 24px; }
+.channel-list__header span { display: inline-block; margin-right: 24px; }
 .channel-list__viewport { position: relative; height: 900px; overflow: hidden; }
-.channel-row { display: flex; align-items: center; gap: 18px; height: 96px; padding: 0 24px;
-  border-radius: 12px; color: var(--text-primary); transition: transform .12s ease-out, background .12s; }
-.channel-row__num { width: 56px; color: var(--text-secondary); }
-.channel-row__logo { width: 64px; height: 48px; object-fit: contain; background: var(--surface-raised); border-radius: 6px; }
-.channel-row__meta { display: flex; flex-direction: column; }
-.channel-row__name { font-weight: 600; }
-.channel-row__now { font-size: 22px; color: var(--text-secondary); }
+.channel-row { display: block; height: 96px; padding: 16px 24px; border-radius: 12px; color: #F2F2F3; }
+.channel-row__num { display: inline-block; width: 56px; color: #A1A1AA; vertical-align: middle; }
+.channel-row__logo { display: inline-block; width: 64px; height: 48px; margin-right: 18px;
+  background: #232328; border-radius: 6px; vertical-align: middle; }
+.channel-row__meta { display: inline-block; vertical-align: middle; }
+.channel-row__name { display: block; font-weight: 600; }
+.channel-row__now { display: block; font-size: 22px; color: #A1A1AA; }
 
-/* Focus treatment — the user's "cursor" (single most important visual) */
+/* Focus treatment — the D-pad "cursor" */
 .focused, :focus {
   outline: none;
-  background: var(--surface-raised);
-  transform: scale(1.06);
-  box-shadow: 0 0 0 3px var(--accent), 0 0 0 9px rgba(225, 29, 42, .35);
+  background: #232328;
+  box-shadow: 0 0 0 3px #E11D2A, 0 0 0 9px rgba(225,29,42,.35);
 }
 
 /* Number-entry overlay */
-.number-entry { position: absolute; top: var(--overscan); right: var(--overscan); z-index: 40;
-  background: var(--surface); border: 3px solid var(--accent); border-radius: 16px;
+.number-entry { position: absolute; top: 48px; right: 48px; z-index: 40;
+  background: #18181B; border: 3px solid #E11D2A; border-radius: 16px;
   padding: 16px 28px; font-size: 56px; font-weight: 700; letter-spacing: 8px; }
 
-/* now/next info bar (ui-ux-plan §5.1) */
-.info-bar { position: absolute; left: var(--overscan); right: var(--overscan); bottom: var(--overscan);
-  background: var(--scrim); border-radius: 16px; padding: 24px 28px; z-index: 25; }
-.info-bar__head { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
-.info-bar__name { font-size: 34px; font-weight: 700; flex: 1; }
+/* now/next info bar */
+.info-bar { position: absolute; left: 48px; right: 48px; bottom: 48px;
+  background: rgba(0,0,0,.55); border-radius: 16px; padding: 24px 28px; z-index: 25; }
+.info-bar__head { margin-bottom: 12px; }
+.info-bar__head .channel-row__num,
+.info-bar__head .channel-row__logo { vertical-align: middle; }
+.info-bar__name { display: inline-block; vertical-align: middle; font-size: 34px; font-weight: 700; margin-right: 16px; }
 .info-now { font-size: 28px; }
-.info-now__time { color: var(--text-secondary); }
+.info-now__time { color: #A1A1AA; margin-right: 8px; }
 .info-now__title { font-weight: 600; }
-.info-now--empty { color: var(--text-secondary); }
-.info-next { font-size: 24px; color: var(--text-secondary); margin-top: 6px; }
-.info-progress { display: block; height: 6px; background: var(--surface-raised); border-radius: 3px; margin-top: 10px; overflow: hidden; }
-.info-progress__bar { display: block; height: 100%; background: var(--accent); }
+.info-now--empty { color: #A1A1AA; }
+.info-next { font-size: 24px; color: #A1A1AA; margin-top: 6px; }
+.info-progress { display: block; height: 6px; background: #232328; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+.info-progress__bar { display: block; height: 100%; background: #E11D2A; }
 
-/* Program timeline (US3 catch-up entry, ui-ux-plan §5.3) */
-.timeline-panel { position: absolute; left: var(--overscan); right: var(--overscan); bottom: var(--overscan);
-  background: var(--scrim); border-radius: 16px; padding: 20px 24px; z-index: 26; }
-.timeline-item { display: flex; align-items: center; gap: 18px; height: 64px; padding: 0 18px; border-radius: 10px; }
-.timeline-item__time { width: 92px; color: var(--text-secondary); }
-.timeline-item__title { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timeline-item.is-live { color: var(--accent); }
+/* Program timeline (US3 catch-up entry) */
+.timeline-panel { position: absolute; left: 48px; right: 48px; bottom: 48px;
+  background: rgba(0,0,0,.55); border-radius: 16px; padding: 20px 24px; z-index: 26; }
+.timeline-item { height: 64px; padding: 16px 18px; border-radius: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timeline-item__time { display: inline-block; width: 92px; color: #A1A1AA; vertical-align: middle; }
+.timeline-item__title { display: inline-block; font-weight: 600; vertical-align: middle; margin-right: 16px; }
+.timeline-item.is-live { color: #E11D2A; }
 .timeline-item.is-dim { opacity: .45; }
 
 /* Time-shift "behind live" badge */
-.timeshift-overlay, #timeshift-overlay { pointer-events: none; }
-.timeshift-badge { position: absolute; top: var(--overscan); left: var(--overscan); z-index: 24;
-  background: var(--scrim); border-radius: 10px; padding: 8px 16px; font-size: 22px; color: var(--text-primary); }
+.timeshift-badge { position: absolute; top: 48px; left: 48px; z-index: 24;
+  background: rgba(0,0,0,.55); border-radius: 10px; padding: 8px 16px; font-size: 22px; color: #F2F2F3; }
 
 /* LIVE / status badges */
-.badge-live { color: var(--accent); font-weight: 700; }
-.badge-live::before { content: "● "; }
-.badge-behind { color: var(--text-secondary); }
+.badge-live { color: #E11D2A; font-weight: 700; }
+.badge-live:before { content: "\25CF  "; }
+.badge-behind { color: #A1A1AA; }
 
-/* Loading / error states (never blank — FR-016/FR-009) */
-.state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 16px; text-align: center; z-index: 30; }
-.state__msg { color: var(--text-secondary); max-width: 60%; }
-.state__retry { color: var(--accent); }
+/* Loading / error states (never blank) */
+.state { position: absolute; top: 0; right: 0; bottom: 0; left: 0; text-align: center; z-index: 30; }
+.state__msg { position: absolute; top: 46%; left: 10%; right: 10%; color: #A1A1AA; }
+.state__retry { position: absolute; top: 54%; left: 10%; right: 10%; color: #E11D2A; }
