@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets" id="http://berotv.com/BeroTV" version="1.0.0" viewmodes="maximized">
+    <tizen:application id="0HV0uthvTV.BeroTV" package="0HV0uthvTV" required_version="2.3"/>
+    <tizen:metadata key='http://samsung.com/tv/metadata/devel.api.version' value='2.4'/>
+    <author email="lberoshvili9@gmail.com">Levan Beroshvili</author>
+    <content src="webapp/index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
+    <feature name="http://tizen.org/feature/web.service"/>
+    <icon src="BeroTVIcon.png"/>
+    <name>Bero TV</name>
+    <tizen:app-control>
+      <tizen:src name='webapp/index.html' reload='disable'></tizen:src>
+      <tizen:operation name='http://samsung.com/appcontrol/operation/eden_resume'></tizen:operation>
+    </tizen:app-control>
+    <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/download"/>
+    <tizen:privilege name="http://tizen.org/privilege/mediastorage"/>
+    <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
+    <tizen:privilege name="http://tizen.org/privilege/filesystem.write"/>
+    <tizen:privilege name="http://tizen.org/privilege/network.get"/>
+    <tizen:profile name="tv-samsung"/>
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+    <tizen:allow-navigation>api.tvibo.com api-new.silkgo.ge *.myvideo.ge</tizen:allow-navigation>
+    <tizen:content-security-policy>default-src * 'unsafe-inline' 'unsafe-eval'; media-src *</tizen:content-security-policy>
+    <access origin="*" subdomains="true"/>
+</widget>

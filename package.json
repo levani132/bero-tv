@@ -1,0 +1,22 @@
+{
+  "name": "bero-tv",
+  "version": "1.0.0",
+  "description": "Bero TV — live TV for Tizen & Android TV",
+  "main": "ts/main.ts",
+  "type": "commonjs",
+  "scripts": {
+    "build": "gulp build",
+    "start": "gulp watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "author": "Levan Beroshvili",
+  "license": "ISC",
+  "devDependencies": {
+    "gulp": "^4.0.2",
+    "gulp-inject-string": "^1.1.2",
+    "gulp-live-server": "^0.0.31",
+    "gulp-typescript": "^6.0.0-alpha.1",
+    "playwright": "^1.61.0",
+    "typescript": "^5.3.3"
+  }
+}

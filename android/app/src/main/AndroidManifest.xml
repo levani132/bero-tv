@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.berotv.berotv">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/bero_tv_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.BeroTV"
+        android:networkSecurityConfig="@xml/network_security_config">
+        <activity
+            android:name="com.berotv.berotv.MainActivity"
+            android:banner="@mipmap/bero_tv_banner"
+            android:icon="@mipmap/bero_tv_launcher"
+            android:label="@string/app_name"
+            android:hardwareAccelerated="true"
+            android:exported="true"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
