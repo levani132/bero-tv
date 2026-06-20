@@ -11,7 +11,18 @@ class PlayerService {
   attach(video: HTMLVideoElement, events: PlayerEvents = {}) {
     this.videoEl = video;
     this.useAvplay = !!(window["webapis"] && webapis.avplay);
-    if (!this.useAvplay) {
+    if (this.useAvplay) {
+      // Tizen AVPlay renders video to a hardware plane BEHIND the webview. The page
+      // must be transparent for it to show through, and the unused <video> element
+      // must not cover it — otherwise: audio plays but the screen is black.
+      video.style.display = "none";
+      try {
+        document.documentElement.style.background = "transparent";
+        document.body.style.background = "transparent";
+        const parent = video.parentElement;
+        if (parent) (parent as HTMLElement).style.background = "transparent";
+      } catch (e) {}
+    } else {
       video.onerror = () => events.onError && events.onError("unplayable");
       video.oncanplay = () => events.onReady && events.onReady();
     }
@@ -21,13 +32,19 @@ class PlayerService {
   playLive(url: string) {
     if (this.useAvplay) {
       try {
+        webapis.avplay.stop();
         webapis.avplay.close();
       } catch (e) {}
       webapis.avplay.open(url);
+      try {
+        webapis.avplay.setDisplayMethod("PLAYER_DISPLAY_MODE_FULL_SCREEN");
+      } catch (e) {}
       webapis.avplay.setDisplayRect(0, 0, 1920, 1080);
       webapis.avplay.prepareAsync(
-        () => webapis.avplay.play(),
-        () => {}
+        function () {
+          webapis.avplay.play();
+        },
+        function () {}
       );
       return;
     }
