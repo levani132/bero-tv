@@ -20,13 +20,13 @@ html, body {
 .channel-list__header { color: #A1A1AA; margin-bottom: 24px; }
 .channel-list__header span { display: inline-block; margin-right: 24px; }
 .channel-list__viewport { position: relative; height: 900px; overflow: hidden; }
-.channel-row { display: block; height: 96px; padding: 16px 24px; border-radius: 12px; color: #F2F2F3; }
+.channel-row { display: block; height: 96px; padding: 16px 24px; border-radius: 12px; color: #F2F2F3; overflow: hidden; white-space: nowrap; }
 .channel-row__num { display: inline-block; width: 56px; color: #A1A1AA; vertical-align: middle; }
 .channel-row__logo { display: inline-block; width: 64px; height: 48px; margin-right: 18px;
   background: #232328; border-radius: 6px; vertical-align: middle; }
-.channel-row__meta { display: inline-block; vertical-align: middle; }
-.channel-row__name { display: block; font-weight: 600; }
-.channel-row__now { display: block; font-size: 22px; color: #A1A1AA; }
+.channel-row__meta { display: inline-block; vertical-align: middle; max-width: 480px; }
+.channel-row__name { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.channel-row__now { display: block; font-size: 22px; color: #A1A1AA; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Focus treatment — the D-pad "cursor" */
 .focused, :focus {
@@ -47,11 +47,11 @@ html, body {
 .info-bar__head .channel-row__num,
 .info-bar__head .channel-row__logo { vertical-align: middle; }
 .info-bar__name { display: inline-block; vertical-align: middle; font-size: 34px; font-weight: 700; margin-right: 16px; }
-.info-now { font-size: 28px; }
+.info-now { font-size: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .info-now__time { color: #A1A1AA; margin-right: 8px; }
 .info-now__title { font-weight: 600; }
 .info-now--empty { color: #A1A1AA; }
-.info-next { font-size: 24px; color: #A1A1AA; margin-top: 6px; }
+.info-next { font-size: 24px; color: #A1A1AA; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .info-progress { display: block; height: 6px; background: #232328; border-radius: 3px; margin-top: 10px; overflow: hidden; }
 .info-progress__bar { display: block; height: 100%; background: #E11D2A; }
 
