@@ -65,8 +65,25 @@ class PlayerService {
     }
   }
 
-  // --- Reserved for User Story 3 (time-shift) ---
-  // seekTo(positionSec) / jump(deltaSec) / jumpToLive() — AVPlay.seekTo / ExoPlayer.
+  // Relative seek within the current stream. On AVPlay this jumps within the
+  // available buffer/DVR window (full range in a catch-up archive, limited near
+  // the live edge); on <video> it nudges currentTime within the seekable range.
+  seek(deltaSeconds: number) {
+    if (this.useAvplay) {
+      try {
+        var ms = Math.abs(deltaSeconds) * 1000;
+        if (deltaSeconds < 0) webapis.avplay.jumpBackward(ms);
+        else webapis.avplay.jumpForward(ms);
+      } catch (e) {}
+      return;
+    }
+    if (this.videoEl) {
+      try {
+        var t = (this.videoEl.currentTime || 0) + deltaSeconds;
+        this.videoEl.currentTime = t < 0 ? 0 : t;
+      } catch (e) {}
+    }
+  }
 }
 
 export const playerService = new PlayerService();

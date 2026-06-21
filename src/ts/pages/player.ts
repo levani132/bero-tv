@@ -24,6 +24,8 @@ export function Player() {
   let timeshift = false;
   let zapTimer: any = null;
   let infoTimer: any = null;
+  let seekStep = 5; // seconds; accelerates while the key is held/repeated
+  let lastSeekAt = 0;
 
   function el(id: string) {
     return document.getElementById(id) as HTMLElement;
@@ -149,6 +151,20 @@ export function Player() {
       : "";
   }
 
+  // Relative seek with acceleration: 5s base, doubling (→10→20→40→60) while the
+  // key keeps repeating, resetting after a short pause.
+  function doSeek(dir: number) {
+    var now = Date.now();
+    seekStep = now - lastSeekAt < 800 ? Math.min(seekStep * 2, 60) : 5;
+    lastSeekAt = now;
+    playerService.seek(dir * seekStep);
+    timeshift = true;
+    el("timeshift-overlay").innerHTML =
+      '<div class="timeshift-badge">' +
+      (dir < 0 ? "⏪ −" : "⏩ +") + seekStep + "s · " +
+      t("behindLive") + " · " + t("live") + " ⏭ Back</div>";
+  }
+
   // Return to the live edge (one press — SC-009).
   function returnToLive() {
     timeshift = false;
@@ -203,13 +219,20 @@ export function Player() {
       } else if (key === "BACK") closeTimeline();
       return;
     }
-    // bare player: middle (OK) → channel list; Up/Down → bottom status panel
-    // (now/next); Left/Right → program timeline; Channel Up/Down zap directly.
-    if (key === "OK") openList();
-    else if (key === "UP" || key === "DOWN") {
+    // bare player:
+    //  OK → channel chooser; but if the status bar is up → program chooser
+    //  Up/Down → now/next status bar
+    //  Left/Right (+ media Rewind/Forward) → seek back/forward (accelerating)
+    //  Channel Up/Down zap directly; Back → live (if shifted) / exit
+    if (key === "OK") {
+      var infoUp = el("info-bar-overlay").innerHTML !== "";
+      if (infoUp) openTimeline();
+      else openList();
+    } else if (key === "UP" || key === "DOWN") {
       var cur = currentId ? channelsStore.getById(currentId) : undefined;
       if (cur) showInfoBar(cur);
-    } else if (key === "LEFT" || key === "RIGHT") openTimeline();
+    } else if (key === "LEFT" || key === "REWIND") doSeek(-1);
+    else if (key === "RIGHT" || key === "FORWARD") doSeek(1);
     else if (key === "BACK") {
       if (timeshift) returnToLive();
       else router.goBack();
