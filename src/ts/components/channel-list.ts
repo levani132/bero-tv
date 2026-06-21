@@ -1,10 +1,12 @@
 import { Channel } from "../models/channel";
 import { esc } from "../lib/renderer";
 import { t } from "../lib/i18n";
+import { epgStore } from "../stores/epgStore";
 
 // Vertical channel-list overlay with windowed rendering (~142 channels → only the
 // visible slice is in the DOM, R4). Owns its focus index; the player page drives it
-// via key intents and reads the confirmed channel.
+// via key intents and reads the confirmed channel. now-playing titles are lazy-
+// loaded per visible row from the (cached) EPG store.
 const WINDOW = 9; // visible rows + small buffer
 
 class ChannelList {
@@ -12,6 +14,7 @@ class ChannelList {
   private focusIndex = 0;
   private start = 0;
   private container: HTMLElement | null = null;
+  private fetching: Record<string, boolean> = {};
 
   open(container: HTMLElement, channels: Channel[], focusId: string | null) {
     this.container = container;
@@ -60,6 +63,26 @@ class ChannelList {
     this.container.innerHTML =
       '<div class="channel-list__header"><span>⌕ ' + t("search") + "</span><span>▸ " + t("category") + "</span></div>" +
       '<div class="channel-list__viewport">' + rows + "</div>";
+    this.loadNowTitles(slice);
+  }
+
+  // Lazy-load the now-playing title for each visible channel (EPG store is cached);
+  // re-render as they arrive. nowTitle: null = not fetched, "" = fetched/none.
+  private loadNowTitles(slice: Channel[]) {
+    var self = this;
+    slice.forEach(function (c) {
+      if (c.nowTitle != null || self.fetching[c.id]) return;
+      self.fetching[c.id] = true;
+      epgStore
+        .getNowNext(c.id)
+        .then(function (nn) {
+          c.nowTitle = nn.now ? nn.now.title : "";
+          if (self.container) self.render();
+        })
+        .catch(function () {
+          c.nowTitle = "";
+        });
+    });
   }
 }
 

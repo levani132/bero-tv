@@ -203,9 +203,13 @@ export function Player() {
       } else if (key === "BACK") closeTimeline();
       return;
     }
-    // bare player — arrows open the navigation panes (Channel Up/Down zap directly).
-    if (key === "OK" || key === "UP" || key === "DOWN") openList();
-    else if (key === "LEFT" || key === "RIGHT") openTimeline();
+    // bare player: middle (OK) → channel list; Up/Down → bottom status panel
+    // (now/next); Left/Right → program timeline; Channel Up/Down zap directly.
+    if (key === "OK") openList();
+    else if (key === "UP" || key === "DOWN") {
+      var cur = currentId ? channelsStore.getById(currentId) : undefined;
+      if (cur) showInfoBar(cur);
+    } else if (key === "LEFT" || key === "RIGHT") openTimeline();
     else if (key === "BACK") {
       if (timeshift) returnToLive();
       else router.goBack();
