@@ -48,10 +48,13 @@ export class SilkgoTvClient extends AbstractClient {
     return (r && r.data && r.data.attributes && r.data.attributes.file) || "";
   }
 
-  // Catch-up (time-shift) stream for a past position. VERIFIED: channel/chunk with
+  // Time-shift stream starting at a past position. VERIFIED: channel/chunk with
   // `datetime=<Asia/Tbilisi YYYY-MM-DD HH:mm:ss>&center=false&allowProgressive=true`
-  // returns a non-live windowed archive playlist (index-{startTs}-{duration}.m3u8).
-  async getCatchupStreamUrl(slug: string, startEpoch: number): Promise<string> {
+  // returns a windowed, seekable playlist spanning [datetime, live edge] — e.g.
+  // index-{startTs}-now.m3u8 for recent times (still flagged live:true) or
+  // index-{startTs}-{dur}.m3u8 for older archive. Either way the `file` is valid
+  // and seekable, so return it whenever present (the live flag does NOT gate it).
+  async getTimeshiftStreamUrl(slug: string, startEpoch: number): Promise<string> {
     const datetime = timeService.toLocalString(startEpoch); // source-local time
     const q =
       "/channel/chunk/" + slug +
@@ -59,7 +62,7 @@ export class SilkgoTvClient extends AbstractClient {
       "&center=false&allowProgressive=true";
     const r = await this.authedGet<JsonApiOne<ApiChunkAttrs>>(q);
     const a = (r && r.data && r.data.attributes) || ({} as ApiChunkAttrs);
-    return a.live === false && a.file ? a.file : "";
+    return a.file || "";
   }
 
   // EPG for a channel over a date range (date-only "YYYY-MM-DD"). VERIFIED: the

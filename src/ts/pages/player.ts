@@ -11,6 +11,7 @@ import { renderInfoBar } from "../components/info-bar";
 import { createProgramTimeline } from "../components/program-timeline";
 import { renderTransport } from "../components/transport-bar";
 import { epgStore } from "../stores/epgStore";
+import { timeService } from "../services/TimeService";
 import { Channel } from "../models/channel";
 import { ZAP_DEBOUNCE_MS } from "../models/config";
 
@@ -25,11 +26,11 @@ export function Player() {
   let timeshift = false;
   let zapTimer: any = null;
   let infoTimer: any = null;
-  let seekStep = 5; // seconds; accelerates while the key is held/repeated
+  let seekStep = 5; // seconds; accelerates while the key repeats
   let lastSeekAt = 0;
-  let seekActive = false; // true while previewing a not-yet-committed seek
-  let previewMs = 0;
-  let durMs = 0;
+  let seekActive = false; // previewing an uncommitted seek
+  let tsStartEpoch: number | null = null; // start of the loaded time-shift window; null = pure live
+  let targetEpoch = 0; // seek target, epoch seconds
   let commitTimer: any = null;
   let hideTimer: any = null;
   let pollTimer: any = null;
@@ -68,6 +69,7 @@ export function Player() {
     currentId = ch.id;
     timeshift = false;
     seekActive = false;
+    tsStartEpoch = null;
     clearTimeout(commitTimer);
     clearTimeout(hideTimer);
     clearInterval(pollTimer);
@@ -140,32 +142,41 @@ export function Player() {
   async function playCatchup(ch: Channel, startEpoch: number) {
     showState("loading", false);
     try {
-      const url = await silkgoTv.getCatchupStreamUrl(ch.slug, startEpoch);
+      const url = await silkgoTv.getTimeshiftStreamUrl(ch.slug, startEpoch);
       if (!url) {
         showState("catchup.unavailable", false);
         setTimeout(() => showState(null, false), 2500);
         return;
       }
-      playerService.playLive(url); // same player; position handled by the stream
+      playerService.playLive(url); // windowed [startEpoch, live] stream
+      tsStartEpoch = startEpoch;
       timeshift = true;
       showState(null, false);
-      setTimeout(showTransport, 1200); // let the archive prepare so duration is known
+      setTimeout(showTransport, 1200); // let the stream prepare so position is known
     } catch (e) {
       showState("catchup.unavailable", false);
       setTimeout(() => showState(null, false), 2500);
     }
   }
 
-  // --- Transport / scrub bar (text + progress line) ---
-  function renderTransportBar(posMs: number) {
-    el("timeshift-overlay").innerHTML = renderTransport(posMs, durMs);
+  // --- Transport / scrub bar (text + progress line; "behind live") ---
+  // Current playback time as an epoch: live edge when no window is loaded, else
+  // the window start plus how far into it we've played.
+  function currentEpoch(): number {
+    if (tsStartEpoch == null) return timeService.now();
+    return tsStartEpoch + Math.floor(playerService.getCurrentMs() / 1000);
+  }
+  function renderTransportBar(behindMs: number) {
+    el("timeshift-overlay").innerHTML = renderTransport(behindMs);
+  }
+  function behindNowMs(): number {
+    return Math.max(0, (timeService.now() - currentEpoch()) * 1000);
   }
   function startPoll() {
     clearInterval(pollTimer);
     pollTimer = setInterval(function () {
       if (seekActive) return; // a preview is on screen; don't overwrite it
-      durMs = playerService.getDurationMs();
-      renderTransportBar(playerService.getCurrentMs());
+      renderTransportBar(behindNowMs());
     }, 700);
   }
   function scheduleHide() {
@@ -178,43 +189,67 @@ export function Player() {
   }
   // Show the bar for current playback (used when catch-up starts).
   function showTransport() {
-    durMs = playerService.getDurationMs();
-    renderTransportBar(playerService.getCurrentMs());
+    renderTransportBar(behindNowMs());
     startPoll();
     scheduleHide();
   }
 
-  // Accumulate a target while the key repeats, preview it on the scrub bar, and
-  // commit ONE absolute seek after a short pause — best-player behavior, and it
-  // avoids thrashing AVPlay with many relative jumps. Step accelerates 5→…→60s.
+  // Accumulate a behind-live target while the key repeats, preview it on the scrub
+  // bar, and commit once after a short pause. dir: -1 = back (Left), +1 = fwd.
+  // Step accelerates 5→10→20→40→60s. The source has no deep buffer at the live
+  // edge, so rewinding loads a windowed stream starting at the target time.
   function doSeek(dir: number) {
-    durMs = playerService.getDurationMs();
+    var now = timeService.now();
     if (!seekActive) {
-      previewMs = playerService.getCurrentMs();
+      targetEpoch = currentEpoch();
       seekActive = true;
     }
-    var now = Date.now();
-    seekStep = now - lastSeekAt < 800 ? Math.min(seekStep * 2, 60) : 5;
-    lastSeekAt = now;
-    previewMs += dir * seekStep * 1000;
-    if (previewMs < 0) previewMs = 0;
-    if (durMs > 0 && previewMs > durMs) previewMs = durMs;
-    timeshift = true;
-    renderTransportBar(previewMs);
+    var t = Date.now();
+    seekStep = t - lastSeekAt < 800 ? Math.min(seekStep * 2, 60) : 5;
+    lastSeekAt = t;
+    targetEpoch += dir * seekStep;
+    if (targetEpoch > now) targetEpoch = now; // can't pass the live edge
+    if (targetEpoch < now - 6 * 3600) targetEpoch = now - 6 * 3600; // cap 6h back
+    timeshift = now - targetEpoch > 3;
+    renderTransportBar(Math.max(0, (now - targetEpoch) * 1000));
     clearTimeout(commitTimer);
     commitTimer = setTimeout(commitSeek, 450);
     scheduleHide();
   }
-  function commitSeek() {
-    playerService.seekTo(previewMs);
+  async function commitSeek() {
     seekActive = false;
-    startPoll();
+    var now = timeService.now();
+    if (now - targetEpoch <= 3) {
+      returnToLive();
+      return;
+    }
+    // Target inside the already-loaded window → smooth seek, no reload.
+    if (tsStartEpoch != null && targetEpoch >= tsStartEpoch) {
+      playerService.seekTo((targetEpoch - tsStartEpoch) * 1000);
+      startPoll();
+      return;
+    }
+    // Otherwise (from live, or earlier than the window) → load a windowed stream
+    // starting at the target and play from there.
+    if (!currentId) return;
+    var ch = channelsStore.getById(currentId);
+    if (!ch) return;
+    try {
+      var url = await silkgoTv.getTimeshiftStreamUrl(ch.slug, targetEpoch);
+      if (url) {
+        playerService.playLive(url);
+        tsStartEpoch = targetEpoch;
+        timeshift = true;
+        startPoll();
+      }
+    } catch (e) {}
   }
 
   // Return to the live edge (one press — SC-009).
   function returnToLive() {
     timeshift = false;
     seekActive = false;
+    tsStartEpoch = null;
     clearTimeout(commitTimer);
     clearTimeout(hideTimer);
     clearInterval(pollTimer);
