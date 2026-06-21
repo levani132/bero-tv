@@ -17,7 +17,7 @@ function fmt(ts: number): string {
   return ts ? timeService.hhmm(timeService.toLocalString(ts)) : "";
 }
 
-export function renderInfoBar(channel: Channel, nn: NowNext): string {
+export function renderInfoBar(channel: Channel, nn: NowNext, isLive: boolean): string {
   const logo = channel.logoUrl
     ? '<img class="channel-row__logo" src="' + esc(channel.logoUrl) + '">'
     : '<span class="channel-row__logo"></span>';
@@ -31,13 +31,16 @@ export function renderInfoBar(channel: Channel, nn: NowNext): string {
   } else {
     body = '<div class="info-now info-now--empty">' + t("epg.none") + "</div>";
   }
+  var badge = isLive
+    ? '<span class="badge-live">' + t("live") + "</span>"
+    : '<span class="badge-behind">' + t("behindLive") + "</span>";
   return (
     '<div class="info-bar">' +
     '<div class="info-bar__head">' +
     '<span class="channel-row__num">' + esc(channel.number || "") + "</span>" +
     logo +
     '<span class="info-bar__name">' + esc(channel.name) + "</span>" +
-    '<span class="badge-live">' + t("live") + "</span>" +
+    badge +
     "</div>" + body + "</div>"
   );
 }

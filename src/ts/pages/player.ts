@@ -28,12 +28,13 @@ export function Player() {
   let infoTimer: any = null;
   let seekStep = 5; // seconds; accelerates while the key repeats
   let lastSeekAt = 0;
-  let seekActive = false; // previewing an uncommitted seek
-  let tsStartEpoch: number | null = null; // start of the loaded time-shift window; null = pure live
-  let targetEpoch = 0; // seek target, epoch seconds
+  // How far behind the live edge we are, in seconds (0 = live). This is the single
+  // source of truth for time-shift: it's constant during normal playback (live edge
+  // and playhead both advance at 1x) and only changes when the viewer seeks — so we
+  // never depend on the player's (unreliable, on a growing live window) currentTime.
+  let behindSec = 0;
   let commitTimer: any = null;
   let hideTimer: any = null;
-  let pollTimer: any = null;
 
   function el(id: string) {
     return document.getElementById(id) as HTMLElement;
@@ -52,10 +53,11 @@ export function Player() {
   function showInfoBar(ch: Channel) {
     const node = el("info-bar-overlay");
     if (!node) return;
-    node.innerHTML = renderInfoBar(ch, { now: null, next: null });
+    const live = behindSec <= 3;
+    node.innerHTML = renderInfoBar(ch, { now: null, next: null }, live);
     epgStore.getNowNext(ch.id).then((nn) => {
       // Only repaint if still on this channel AND no overlay has taken over.
-      if (currentId === ch.id && mode === "playing") node.innerHTML = renderInfoBar(ch, nn);
+      if (currentId === ch.id && mode === "playing") node.innerHTML = renderInfoBar(ch, nn, behindSec <= 3);
     });
     clearTimeout(infoTimer);
     infoTimer = setTimeout(() => {
@@ -68,11 +70,9 @@ export function Player() {
     if (!ch) return;
     currentId = ch.id;
     timeshift = false;
-    seekActive = false;
-    tsStartEpoch = null;
+    behindSec = 0;
     clearTimeout(commitTimer);
     clearTimeout(hideTimer);
-    clearInterval(pollTimer);
     el("timeshift-overlay").innerHTML = "";
     sessionStore.setLastChannel(ch.id);
     showInfoBar(ch);
@@ -149,10 +149,10 @@ export function Player() {
         return;
       }
       playerService.playLive(url); // windowed [startEpoch, live] stream
-      tsStartEpoch = startEpoch;
+      behindSec = Math.max(0, timeService.now() - startEpoch);
       timeshift = true;
       showState(null, false);
-      setTimeout(showTransport, 1200); // let the stream prepare so position is known
+      showTransport();
     } catch (e) {
       showState("catchup.unavailable", false);
       setTimeout(() => showState(null, false), 2500);
@@ -160,87 +160,54 @@ export function Player() {
   }
 
   // --- Transport / scrub bar (text + progress line; "behind live") ---
-  // Current playback time as an epoch: live edge when no window is loaded, else
-  // the window start plus how far into it we've played.
-  function currentEpoch(): number {
-    if (tsStartEpoch == null) return timeService.now();
-    return tsStartEpoch + Math.floor(playerService.getCurrentMs() / 1000);
-  }
-  function renderTransportBar(behindMs: number) {
-    el("timeshift-overlay").innerHTML = renderTransport(behindMs);
-  }
-  function behindNowMs(): number {
-    return Math.max(0, (timeService.now() - currentEpoch()) * 1000);
-  }
-  function startPoll() {
-    clearInterval(pollTimer);
-    pollTimer = setInterval(function () {
-      if (seekActive) return; // a preview is on screen; don't overwrite it
-      renderTransportBar(behindNowMs());
-    }, 700);
+  function renderTransportBar() {
+    el("timeshift-overlay").innerHTML = renderTransport(behindSec * 1000);
   }
   function scheduleHide() {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(hideTransport, 5000);
   }
   function hideTransport() {
-    clearInterval(pollTimer);
     el("timeshift-overlay").innerHTML = "";
   }
   // Show the bar for current playback (used when catch-up starts).
   function showTransport() {
-    renderTransportBar(behindNowMs());
-    startPoll();
+    renderTransportBar();
     scheduleHide();
   }
 
-  // Accumulate a behind-live target while the key repeats, preview it on the scrub
-  // bar, and commit once after a short pause. dir: -1 = back (Left), +1 = fwd.
-  // Step accelerates 5→10→20→40→60s. The source has no deep buffer at the live
-  // edge, so rewinding loads a windowed stream starting at the target time.
+  // Adjust the behind-live target while the key repeats, show it on the scrub bar,
+  // and commit once after a short pause. dir: -1 = back (Left), +1 = fwd. Step
+  // accelerates 5→10→20→40→60s. behindSec is the truth (constant during playback),
+  // so there's no fragile player-position math — each commit just (re)loads a
+  // windowed stream starting at (now - behindSec).
   function doSeek(dir: number) {
-    var now = timeService.now();
-    if (!seekActive) {
-      targetEpoch = currentEpoch();
-      seekActive = true;
-    }
     var t = Date.now();
     seekStep = t - lastSeekAt < 800 ? Math.min(seekStep * 2, 60) : 5;
     lastSeekAt = t;
-    targetEpoch += dir * seekStep;
-    if (targetEpoch > now) targetEpoch = now; // can't pass the live edge
-    if (targetEpoch < now - 6 * 3600) targetEpoch = now - 6 * 3600; // cap 6h back
-    timeshift = now - targetEpoch > 3;
-    renderTransportBar(Math.max(0, (now - targetEpoch) * 1000));
+    behindSec = behindSec - dir * seekStep; // Left(-1) → +step; Right(+1) → -step
+    if (behindSec < 0) behindSec = 0;
+    if (behindSec > 6 * 3600) behindSec = 6 * 3600; // cap 6h back
+    timeshift = behindSec > 3;
+    renderTransportBar();
     clearTimeout(commitTimer);
     commitTimer = setTimeout(commitSeek, 450);
     scheduleHide();
   }
   async function commitSeek() {
-    seekActive = false;
-    var now = timeService.now();
-    if (now - targetEpoch <= 3) {
+    if (behindSec <= 3) {
       returnToLive();
       return;
     }
-    // Target inside the already-loaded window → smooth seek, no reload.
-    if (tsStartEpoch != null && targetEpoch >= tsStartEpoch) {
-      playerService.seekTo((targetEpoch - tsStartEpoch) * 1000);
-      startPoll();
-      return;
-    }
-    // Otherwise (from live, or earlier than the window) → load a windowed stream
-    // starting at the target and play from there.
     if (!currentId) return;
     var ch = channelsStore.getById(currentId);
     if (!ch) return;
+    var targetEpoch = timeService.now() - behindSec;
     try {
       var url = await silkgoTv.getTimeshiftStreamUrl(ch.slug, targetEpoch);
       if (url) {
         playerService.playLive(url);
-        tsStartEpoch = targetEpoch;
         timeshift = true;
-        startPoll();
       }
     } catch (e) {}
   }
@@ -248,11 +215,9 @@ export function Player() {
   // Return to the live edge (one press — SC-009).
   function returnToLive() {
     timeshift = false;
-    seekActive = false;
-    tsStartEpoch = null;
+    behindSec = 0;
     clearTimeout(commitTimer);
     clearTimeout(hideTimer);
-    clearInterval(pollTimer);
     el("timeshift-overlay").innerHTML = "";
     var ch = currentId ? channelsStore.getById(currentId) : undefined;
     if (ch) playChannel(ch);
