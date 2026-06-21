@@ -9,6 +9,7 @@ import { createChannelList } from "../components/channel-list";
 import { createNumberEntry } from "../components/number-entry";
 import { renderInfoBar } from "../components/info-bar";
 import { createProgramTimeline } from "../components/program-timeline";
+import { renderTransport } from "../components/transport-bar";
 import { epgStore } from "../stores/epgStore";
 import { Channel } from "../models/channel";
 import { ZAP_DEBOUNCE_MS } from "../models/config";
@@ -26,6 +27,12 @@ export function Player() {
   let infoTimer: any = null;
   let seekStep = 5; // seconds; accelerates while the key is held/repeated
   let lastSeekAt = 0;
+  let seekActive = false; // true while previewing a not-yet-committed seek
+  let previewMs = 0;
+  let durMs = 0;
+  let commitTimer: any = null;
+  let hideTimer: any = null;
+  let pollTimer: any = null;
 
   function el(id: string) {
     return document.getElementById(id) as HTMLElement;
@@ -60,6 +67,10 @@ export function Player() {
     if (!ch) return;
     currentId = ch.id;
     timeshift = false;
+    seekActive = false;
+    clearTimeout(commitTimer);
+    clearTimeout(hideTimer);
+    clearInterval(pollTimer);
     el("timeshift-overlay").innerHTML = "";
     sessionStore.setLastChannel(ch.id);
     showInfoBar(ch);
@@ -137,39 +148,78 @@ export function Player() {
       }
       playerService.playLive(url); // same player; position handled by the stream
       timeshift = true;
-      showTimeshiftBadge();
       showState(null, false);
+      setTimeout(showTransport, 1200); // let the archive prepare so duration is known
     } catch (e) {
       showState("catchup.unavailable", false);
       setTimeout(() => showState(null, false), 2500);
     }
   }
 
-  function showTimeshiftBadge() {
-    el("timeshift-overlay").innerHTML = timeshift
-      ? '<div class="timeshift-badge"><span class="badge-behind">' + t("behindLive") + "</span> · " + t("live") + " ⏭ Back</div>"
-      : "";
+  // --- Transport / scrub bar (text + progress line) ---
+  function renderTransportBar(posMs: number) {
+    el("timeshift-overlay").innerHTML = renderTransport(posMs, durMs);
+  }
+  function startPoll() {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(function () {
+      if (seekActive) return; // a preview is on screen; don't overwrite it
+      durMs = playerService.getDurationMs();
+      renderTransportBar(playerService.getCurrentMs());
+    }, 700);
+  }
+  function scheduleHide() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(hideTransport, 5000);
+  }
+  function hideTransport() {
+    clearInterval(pollTimer);
+    el("timeshift-overlay").innerHTML = "";
+  }
+  // Show the bar for current playback (used when catch-up starts).
+  function showTransport() {
+    durMs = playerService.getDurationMs();
+    renderTransportBar(playerService.getCurrentMs());
+    startPoll();
+    scheduleHide();
   }
 
-  // Relative seek with acceleration: 5s base, doubling (→10→20→40→60) while the
-  // key keeps repeating, resetting after a short pause.
+  // Accumulate a target while the key repeats, preview it on the scrub bar, and
+  // commit ONE absolute seek after a short pause — best-player behavior, and it
+  // avoids thrashing AVPlay with many relative jumps. Step accelerates 5→…→60s.
   function doSeek(dir: number) {
+    durMs = playerService.getDurationMs();
+    if (!seekActive) {
+      previewMs = playerService.getCurrentMs();
+      seekActive = true;
+    }
     var now = Date.now();
     seekStep = now - lastSeekAt < 800 ? Math.min(seekStep * 2, 60) : 5;
     lastSeekAt = now;
-    playerService.seek(dir * seekStep);
+    previewMs += dir * seekStep * 1000;
+    if (previewMs < 0) previewMs = 0;
+    if (durMs > 0 && previewMs > durMs) previewMs = durMs;
     timeshift = true;
-    el("timeshift-overlay").innerHTML =
-      '<div class="timeshift-badge">' +
-      (dir < 0 ? "⏪ −" : "⏩ +") + seekStep + "s · " +
-      t("behindLive") + " · " + t("live") + " ⏭ Back</div>";
+    renderTransportBar(previewMs);
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(commitSeek, 450);
+    scheduleHide();
+  }
+  function commitSeek() {
+    playerService.seekTo(previewMs);
+    seekActive = false;
+    startPoll();
   }
 
   // Return to the live edge (one press — SC-009).
   function returnToLive() {
     timeshift = false;
+    seekActive = false;
+    clearTimeout(commitTimer);
+    clearTimeout(hideTimer);
+    clearInterval(pollTimer);
     el("timeshift-overlay").innerHTML = "";
-    const ch = currentId && channelsStore.getById(currentId);
+    var ch = currentId ? channelsStore.getById(currentId) : undefined;
     if (ch) playChannel(ch);
   }
 

@@ -65,22 +65,46 @@ class PlayerService {
     }
   }
 
-  // Relative seek within the current stream. On AVPlay this jumps within the
-  // available buffer/DVR window (full range in a catch-up archive, limited near
-  // the live edge); on <video> it nudges currentTime within the seekable range.
-  seek(deltaSeconds: number) {
+  // Current playback position, in ms.
+  getCurrentMs(): number {
     if (this.useAvplay) {
       try {
-        var ms = Math.abs(deltaSeconds) * 1000;
-        if (deltaSeconds < 0) webapis.avplay.jumpBackward(ms);
-        else webapis.avplay.jumpForward(ms);
+        return webapis.avplay.getCurrentTime();
+      } catch (e) {
+        return 0;
+      }
+    }
+    return this.videoEl ? Math.floor((this.videoEl.currentTime || 0) * 1000) : 0;
+  }
+
+  // Total seekable duration, in ms (0/unknown for a pure live edge).
+  getDurationMs(): number {
+    if (this.useAvplay) {
+      try {
+        return webapis.avplay.getDuration() || 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+    if (this.videoEl && isFinite(this.videoEl.duration)) {
+      return Math.floor(this.videoEl.duration * 1000);
+    }
+    return 0;
+  }
+
+  // Absolute seek to a position (ms). Best players seek ONCE to a computed target
+  // (debounced) rather than firing many relative jumps — avoids AVPlay thrashing.
+  seekTo(ms: number) {
+    var target = ms < 0 ? 0 : Math.round(ms);
+    if (this.useAvplay) {
+      try {
+        webapis.avplay.seekTo(target);
       } catch (e) {}
       return;
     }
     if (this.videoEl) {
       try {
-        var t = (this.videoEl.currentTime || 0) + deltaSeconds;
-        this.videoEl.currentTime = t < 0 ? 0 : t;
+        this.videoEl.currentTime = target / 1000;
       } catch (e) {}
     }
   }
